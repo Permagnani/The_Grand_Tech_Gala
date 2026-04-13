@@ -3,12 +3,13 @@ import oracledb
 
 app = Flask(__name__)
 
-# ===== CONEXÃO FIXA COM ORACLE =====
-USUARIO_ORACLE = "xxxxxxxx"
-SENHA_ORACLE = "xxxxxx"
-HOST_ORACLE = "oracle.fiap.com.br"
-PORTA_ORACLE = "1521"
-SERVICE_NAME_ORACLE = "ORCL"
+import os
+
+USUARIO_ORACLE = os.getenv("USUARIO_ORACLE")
+SENHA_ORACLE = os.getenv("SENHA_ORACLE")
+HOST_ORACLE = os.getenv("HOST_ORACLE", "oracle.fiap.com.br")
+PORTA_ORACLE = os.getenv("PORTA_ORACLE", "1521")
+SERVICE_NAME_ORACLE = os.getenv("SERVICE_NAME_ORACLE", "ORCL")
 
 
 def conectar_oracle():
