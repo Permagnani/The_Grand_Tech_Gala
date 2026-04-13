@@ -1,9 +1,8 @@
+import os
 from flask import Flask, request, render_template_string
 import oracledb
 
 app = Flask(__name__)
-
-import os
 
 USUARIO_ORACLE = os.getenv("USUARIO_ORACLE")
 SENHA_ORACLE = os.getenv("SENHA_ORACLE")
@@ -20,6 +19,7 @@ def conectar_oracle():
         dsn=dsn
     )
 
+
 def buscar_participantes():
     conn = None
     cursor = None
@@ -31,7 +31,7 @@ def buscar_participantes():
             SELECT
                 i.ID_INSCRICAO,
                 u.NOME,
-                i.TIPO,
+                u.PRIORIDADE,
                 i.STATUS,
                 i.WAITLIST,
                 TO_CHAR(i.DATA_INSCRICAO, 'DD/MM/YYYY') AS DATA_INSCRICAO
@@ -39,6 +39,7 @@ def buscar_participantes():
             JOIN USUARIOS u ON u.ID_USUARIO = i.ID_USUARIO
             ORDER BY
                 CASE WHEN i.WAITLIST = 'SIM' THEN 0 ELSE 1 END,
+                u.PRIORIDADE DESC,
                 i.DATA_INSCRICAO ASC
         """)
 
@@ -46,10 +47,19 @@ def buscar_participantes():
 
         participantes = []
         for row in dados:
+            prioridade_num = row[2]
+
+            if prioridade_num == 3:
+                prioridade_texto = "3 - Platinum"
+            elif prioridade_num == 2:
+                prioridade_texto = "2 - VIP"
+            else:
+                prioridade_texto = "1 - Normal"
+
             participantes.append({
                 "id_inscricao": row[0],
                 "nome": row[1],
-                "plano": row[2],
+                "prioridade": prioridade_texto,
                 "status": row[3],
                 "waitlist": row[4],
                 "data_inscricao": row[5],
@@ -71,6 +81,7 @@ def buscar_participantes():
                 conn.close()
             except Exception:
                 pass
+
 
 def executar_bloco(vagas_liberar):
     conn = None
@@ -188,67 +199,282 @@ def executar_bloco(vagas_liberar):
             except Exception:
                 pass
 
+
 HTML = """
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Python no Oracle</title>
+    <title>The Grand Tech Gala</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #f6f7fb; color: #222; }
-        h1 { margin-bottom: 8px; }
-        .box { background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
-        input, button { padding: 10px; font-size: 16px; }
-        button { cursor: pointer; }
-        .ok { background: #e7f6ea; color: #1c7c3a; padding: 14px; border-radius: 8px; margin-top: 12px; }
-        .erro { background: #fdeaea; color: #b42318; padding: 14px; border-radius: 8px; margin-top: 12px; }
-        .item { padding: 10px 0; border-bottom: 1px solid #ddd; }
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #111111, #1b1b1f, #222228);
+            color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #ff0f68;
+            font-size: 52px;
+            margin-bottom: 8px;
+        }
+
+        h2 {
+            color: #d7d7d7;
+            font-size: 22px;
+            font-weight: normal;
+            margin-bottom: 30px;
+        }
+
+        .box {
+            background: rgba(18, 18, 20, 0.96);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 24px;
+            padding: 28px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+        }
+
+        .box h3 {
+            margin-top: 0;
+            color: #ff0f68;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #bcbcbc;
+            margin-bottom: 30px;
+            font-size: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 12px;
+            color: #cfcfcf;
+            font-size: 18px;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 16px 18px;
+            font-size: 18px;
+            border-radius: 16px;
+            border: 1px solid #3a3a3f;
+            background: #121216;
+            color: white;
+            outline: none;
+        }
+
+        input[type="number"]:focus {
+            border-color: #ff0f68;
+            box-shadow: 0 0 0 2px rgba(255, 15, 104, 0.18);
+        }
+
+        button {
+            margin-top: 18px;
+            width: 100%;
+            padding: 18px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 18px;
+            background: #ff0f68;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        button:hover {
+            filter: brightness(1.08);
+            transform: translateY(-1px);
+        }
+
+        .ok {
+            background: rgba(24, 122, 70, 0.16);
+            color: #86efac;
+            padding: 16px 18px;
+            border-radius: 16px;
+            margin-top: 18px;
+            border: 1px solid rgba(134, 239, 172, 0.18);
+            font-size: 18px;
+        }
+
+        .erro {
+            background: rgba(160, 34, 34, 0.18);
+            color: #ffb4b4;
+            padding: 16px 18px;
+            border-radius: 16px;
+            margin-top: 18px;
+            border: 1px solid rgba(255, 180, 180, 0.18);
+            font-size: 18px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 18px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: rgba(18, 18, 20, 0.96);
+            border-radius: 20px;
+            padding: 22px;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .stat-label {
+            color: #b7b7b7;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            color: #ffffff;
+            font-size: 34px;
+            font-weight: bold;
+        }
+
+        .item {
+            padding: 18px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .item:last-child {
+            border-bottom: none;
+        }
+
+        .nome {
+            font-size: 26px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        .meta {
+            color: #d6d6d6;
+            font-size: 18px;
+            line-height: 1.6;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: rgba(255, 15, 104, 0.14);
+            color: #ff4b8d;
+            border: 1px solid rgba(255, 15, 104, 0.2);
+        }
+
+        .empty {
+            color: #bdbdbd;
+            font-size: 17px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 38px;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>Python no Oracle</h1>
-    <h2>Desafio 1 - Gala Tech</h2>
+    <div class="container">
+        <h1>The Grand Tech Gala</h1>
+        <h2>Gerenciamento Inteligente de Fila de Espera</h2>
 
-    <div class="box">
-        <form method="post">
-            <label>Vagas para Liberar:</label><br><br>
-            <input type="number" name="vagas_liberar" min="1" required>
-            <button type="submit">EXECUTAR PROCESSO PL/SQL</button>
-        </form>
+        <div class="box">
+            <h3>Executar Processo</h3>
+            <p class="subtitle">Informe a quantidade de vagas abertas para promover participantes da fila de espera.</p>
 
-        {% if resultado %}
-            {% if resultado.sucesso %}
-                <div class="ok">{{ resultado.mensagem }}</div>
-            {% else %}
-                <div class="erro">{{ resultado.erro }}</div>
+            <form method="post">
+                <label>Vagas para Liberar:</label>
+                <input type="number" name="vagas_liberar" min="1" required>
+                <button type="submit">EXECUTAR PROCESSO PL/SQL</button>
+            </form>
+
+            {% if resultado %}
+                {% if resultado.sucesso %}
+                    <div class="ok">{{ resultado.mensagem }}</div>
+                {% else %}
+                    <div class="erro">{{ resultado.erro }}</div>
+                {% endif %}
             {% endif %}
-        {% endif %}
-    </div>
+        </div>
 
-    <div class="box">
-        <h3>Total na fila de espera: {{ fila_espera|length }}</h3>
-        {% for p in fila_espera %}
-            <div class="item">
-                <strong>{{ p.nome }}</strong><br>
-                Plano: {{ p.plano }}<br>
-                Data de inscrição: {{ p.data_inscricao }}
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-label">Total na fila de espera</div>
+                <div class="stat-value">{{ fila_espera|length }}</div>
             </div>
-        {% endfor %}
-    </div>
+            <div class="stat-card">
+                <div class="stat-label">Total confirmados</div>
+                <div class="stat-value">{{ confirmados|length }}</div>
+            </div>
+        </div>
 
-    <div class="box">
-        <h3>Total confirmados: {{ confirmados|length }}</h3>
-        {% for p in confirmados %}
-            <div class="item">
-                <strong>{{ p.nome }}</strong><br>
-                Plano: {{ p.plano }}<br>
-                Data de inscrição: {{ p.data_inscricao }}
-            </div>
-        {% endfor %}
+        <div class="box">
+            <h3>Fila de Espera</h3>
+            {% if fila_espera %}
+                {% for p in fila_espera %}
+                    <div class="item">
+                        <div class="badge">Aguardando promoção</div>
+                        <div class="nome">{{ p.nome }}</div>
+                        <div class="meta">
+                            Prioridade: {{ p.prioridade }}<br>
+                            Data de inscrição: {{ p.data_inscricao }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="empty">Não há participantes na fila de espera.</p>
+            {% endif %}
+        </div>
+
+        <div class="box">
+            <h3>Participantes Confirmados</h3>
+            {% if confirmados %}
+                {% for p in confirmados %}
+                    <div class="item">
+                        <div class="badge">Confirmado</div>
+                        <div class="nome">{{ p.nome }}</div>
+                        <div class="meta">
+                            Prioridade: {{ p.prioridade }}<br>
+                            Data de inscrição: {{ p.data_inscricao }}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="empty">Não há participantes confirmados.</p>
+            {% endif %}
+        </div>
     </div>
 </body>
 </html>
 """
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -273,5 +499,6 @@ def index():
         fila_espera=fila_espera,
         confirmados=confirmados
     )
+
 
 app = app
